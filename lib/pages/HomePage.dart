@@ -1,12 +1,7 @@
-import 'package:crytoapp/models/Cryptocurrency.dart';
-import 'package:crytoapp/pages/DetailPage.dart';
 import 'package:crytoapp/pages/Favorites.dart';
-import 'package:crytoapp/pages/Market.dart';
+import 'package:crytoapp/pages/StunningMarket.dart';
 import 'package:crytoapp/pages/news.dart';
-import 'package:crytoapp/providers/market_provider.dart';
-import 'package:crytoapp/providers/theme_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import '../widgets/Navbar.dart';
 
@@ -27,71 +22,143 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    ThemeProvider themeProvider =
-        Provider.of<ThemeProvider>(context, listen: false);
     return Scaffold(
-      
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       drawer: Navbar(),
-      appBar: AppBar(
-        title: Padding(
-          padding: const EdgeInsets.all(40),
-          child: SizedBox(
-            
-              height: 45,
-              child: Image.asset(
-                "assets/images/nametrans2.png",
-                fit: BoxFit.contain,
-                 
-              )),
-        ),
-      ),
-      body: SafeArea(
-        child: Container(
-          
-          padding: EdgeInsets.only(top: 10, left: 10, right: 10, bottom: 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              
-              
-              
-              TabBar(
-                controller: viewController,
-                
-                tabs: [
-                  Tab(
-                    child: Text(
-                      "Markets",
-                      style: Theme.of(context).textTheme.bodyText1,
-                    ),
-                  ),
-                  Tab(
-                    child: Text(
-                      "Favorites",
-                      style: Theme.of(context).textTheme.bodyText1,
-                    ),
-                  ),
-                  Tab(
-                    child: Text(
-                      "News",
-                      style: Theme.of(context).textTheme.bodyText1,
-                    ),
-                  ),
+      body: Column(
+        children: [
+          // Stunning App Bar with Gradient
+          Container(
+            height: 120,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Theme.of(context).primaryColor,
+                  Theme.of(context).primaryColor.withValues(alpha: 0.8),
                 ],
               ),
-              Expanded(
-                child: TabBarView(
-                  
-                  physics: BouncingScrollPhysics(
-                      parent: AlwaysScrollableScrollPhysics()),
-                  controller: viewController,
-                  children: [Markets(), Favorites(), CryptoNewsList()],
+            ),
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Builder(
+                      builder: (context) => Container(
+                        margin: const EdgeInsets.only(right: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: IconButton(
+                          icon: const Icon(Icons.menu_rounded, color: Colors.white),
+                          onPressed: () => Scaffold.of(context).openDrawer(),
+                        ),
+                      ),
+                    ),
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.currency_bitcoin,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'CRYPTO TRACKER',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
+
+          // Modern Tab Bar
+          Container(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(25),
+                border: Border.all(
+                  color: Theme.of(context).dividerColor.withValues(alpha: 0.1),
+                ),
+              ),
+              child: TabBar(
+                controller: viewController,
+                indicator: BoxDecoration(
+                  borderRadius: BorderRadius.circular(25),
+                  color: Theme.of(context).primaryColor,
+                ),
+                indicatorSize: TabBarIndicatorSize.tab,
+                dividerColor: Colors.transparent,
+                labelColor: Colors.white,
+                unselectedLabelColor: Theme.of(context).textTheme.bodyMedium?.color,
+                labelStyle: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+                unselectedLabelStyle: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+                tabs: [
+                  _buildTab(Icons.trending_up_rounded, "Markets"),
+                  _buildTab(Icons.favorite_rounded, "Favorites"),
+                  _buildTab(Icons.newspaper_rounded, "News"),
+                ],
+              ),
+            ),
+          ),
+
+          // Tab Content - Now properly scrollable
+          Expanded(
+            child: TabBarView(
+              controller: viewController,
+              physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics()),
+              children: [
+                StunningMarkets(),
+                Favorites(),
+                CryptoNewsList(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTab(IconData icon, String text) {
+    return Tab(
+      height: 50,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18),
+            const SizedBox(width: 8),
+            Text(text),
+          ],
         ),
       ),
     );
   }
+
 }

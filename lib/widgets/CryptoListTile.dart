@@ -68,18 +68,20 @@ class CryptoListTile extends StatelessWidget {
             ],
           ),
           subtitle: Text(currentCrypto.symbol!.toUpperCase()),
-          trailing: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                "₹ " + currentCrypto.currentPrice!.toStringAsFixed(4),
-                style: TextStyle(
-                  color: Color(0xff0395eb),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
-              ),
+          trailing: Consumer<MarketProvider>(
+            builder: (context, marketProvider, child) {
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    currentCrypto.getFormattedPrice(marketProvider.selectedCurrency),
+                    style: const TextStyle(
+                      color: Color(0xff0395eb),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
               Builder(
                 builder: (context) {
                   double priceChange = currentCrypto.priceChange24!;
@@ -101,12 +103,15 @@ class CryptoListTile extends StatelessWidget {
                   }
                 },
               ),
-            ],
+                ],
+              );
+            },
           ),
         ),
-       SizedBox(
-            height: 5,
-          ),],
+        const SizedBox(
+          height: 5,
+        ),
+      ],
     );
   }
 }

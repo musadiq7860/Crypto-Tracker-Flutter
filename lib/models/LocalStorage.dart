@@ -31,4 +31,16 @@ class LocalStorage {
     SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
     return sharedPreferences.getStringList("favorites") ?? [];
   }
+
+  static Future<bool> setCurrency(String currency) async {
+    SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
+    bool result = await sharedPreferences.setString("currency", currency);
+    return result;
+  }
+
+  static Future<String?> getCurrency() async {
+    SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
+    String? currentCurrency = sharedPreferences.getString("currency");
+    return currentCurrency;
+  }
 }

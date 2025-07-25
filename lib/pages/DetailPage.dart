@@ -1,6 +1,8 @@
 import 'package:crytoapp/models/Cryptocurrency.dart';
 import 'package:crytoapp/providers/market_provider.dart';
+import 'package:crytoapp/widgets/CurrencySelector.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import 'dart:developer';
 import 'package:crytoapp/models/GraphPoint.dart';
@@ -40,18 +42,16 @@ class _DetailsPageState extends State<DetailsPage> {
   List<bool> isSelected = [true, false, false, false];
 
   void toggleDate(int index) async {
-    log("Loading....");
+    log("Loading graph for ${widget.id}...");
 
     for (int i = 0; i < isSelected.length; i++) {
       if (i == index) {
         isSelected[i] = true;
-        log(isSelected.toString());
       } else {
         isSelected[i] = false;
-        log(isSelected.toString());
       }
     }
-    
+
     switch (index) {
       case 0:
         days = 1;
@@ -69,11 +69,15 @@ class _DetailsPageState extends State<DetailsPage> {
         break;
     }
 
-    await graphProvider.initializeGraph(widget.id, days);
+    // Get current market provider to check data source preference
+    MarketProvider marketProvider = Provider.of<MarketProvider>(context, listen: false);
+    bool preferCoinbase = marketProvider.dataSource.contains('Coinbase');
+
+    await graphProvider.initializeGraphHybrid(widget.id, days, currency: marketProvider.selectedCurrency);
 
     setState(() {});
 
-    log("Graph Loaded!");
+    log("Graph loaded with ${graphProvider.graphPoints.length} points from ${graphProvider.dataSource}");
   }
 
   void initializeInitialGraph() async {
@@ -108,7 +112,66 @@ class _DetailsPageState extends State<DetailsPage> {
       child: Scaffold(
         
         appBar: AppBar(
-        
+          title: Consumer<MarketProvider>(
+            builder: (context, marketProvider, child) {
+              CryptoCurrency currentCrypto = marketProvider.fetchCryptoById(widget.id);
+              return Text(
+                currentCrypto.name ?? 'Cryptocurrency',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                ),
+              );
+            },
+          ),
+          actions: [
+            Consumer<MarketProvider>(
+              builder: (context, marketProvider, child) {
+                CryptoCurrency currentCrypto = marketProvider.fetchCryptoById(widget.id);
+                return Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  child: IconButton(
+                    onPressed: () {
+                      if (currentCrypto.isFavorite) {
+                        marketProvider.removeFavorite(currentCrypto);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('${currentCrypto.name} removed from favorites'),
+                            backgroundColor: Colors.orange,
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      } else {
+                        marketProvider.addFavorite(currentCrypto);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('${currentCrypto.name} added to favorites'),
+                            backgroundColor: Colors.green,
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    },
+                    icon: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      child: Icon(
+                        currentCrypto.isFavorite
+                          ? Icons.favorite
+                          : Icons.favorite_border,
+                        key: ValueKey(currentCrypto.isFavorite),
+                        color: currentCrypto.isFavorite
+                          ? Colors.red
+                          : Theme.of(context).iconTheme.color,
+                        size: 28,
+                      ),
+                    ),
+                    tooltip: currentCrypto.isFavorite
+                      ? 'Remove from favorites'
+                      : 'Add to favorites',
+                  ),
+                );
+              },
+            ),
+          ],
         ),
         body: SafeArea(
           child: Container(
@@ -143,21 +206,131 @@ class _DetailsPageState extends State<DetailsPage> {
                 Container(
                   width: MediaQuery.of(context).size.width,
                   height: 300,
-                  child: SfCartesianChart(
-                    primaryXAxis: DateTimeAxis(),
-                    series: <AreaSeries>[
-                      AreaSeries<GraphPoint, dynamic>(
-                          color: Color(0xff1ab7c3).withOpacity(0.5),
-                          borderColor: Color(0xff1ab7c3),
-                          borderWidth: 2,
-                          dataSource: graphProvider.graphPoints,
-                          xValueMapper: (GraphPoint graphPoint, index) =>
-                              graphPoint.date,
-                          yValueMapper: (GraphPoint graphpoint, index) =>
-                              graphpoint.price),
-                    ],
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Theme.of(context).dividerColor.withValues(alpha: 0.1),
+                    ),
                   ),
+                  child: graphProvider.isLoading
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Theme.of(context).primaryColor,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Loading chart data...',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ],
+                        ),
+                      )
+                    : graphProvider.errorMessage != null
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.error_outline,
+                                size: 48,
+                                color: Colors.orange,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                graphProvider.errorMessage!,
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: Colors.orange,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  toggleDate(isSelected.indexWhere((element) => element));
+                                },
+                                icon: const Icon(Icons.refresh),
+                                label: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        )
+                      : graphProvider.graphPoints.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.show_chart,
+                                  size: 48,
+                                  color: Theme.of(context).primaryColor.withValues(alpha: 0.5),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No chart data available',
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                              ],
+                            ),
+                          )
+                        : ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: SfCartesianChart(
+                              primaryXAxis: DateTimeAxis(),
+                              plotAreaBorderWidth: 0,
+                              series: <AreaSeries>[
+                                AreaSeries<GraphPoint, dynamic>(
+                                  color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
+                                  borderColor: Theme.of(context).primaryColor,
+                                  borderWidth: 3,
+                                  dataSource: graphProvider.graphPoints,
+                                  xValueMapper: (GraphPoint graphPoint, index) =>
+                                      graphPoint.date,
+                                  yValueMapper: (GraphPoint graphpoint, index) =>
+                                      graphpoint.price,
+                                ),
+                              ],
+                              tooltipBehavior: TooltipBehavior(enable: true),
+                            ),
+                          ),
                 ),
+
+                // Data Source Indicator
+                if (graphProvider.graphPoints.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.data_usage_rounded,
+                          size: 14,
+                          color: Theme.of(context).primaryColor,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Chart data: ${graphProvider.dataSource}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).primaryColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 Consumer<MarketProvider>(
                   builder: (context, marketProvider, child) {
                     CryptoCurrency currentCrypto =
@@ -189,13 +362,16 @@ class _DetailsPageState extends State<DetailsPage> {
                               fontSize: 30,
                             ),
                           ),
-                          subtitle: Text(
-                            "₹ " +
-                                currentCrypto.currentPrice!.toStringAsFixed(4),
-                            style: TextStyle(
-                                color: Color(0xff0395eb),
-                                fontSize: 30,
-                                fontWeight: FontWeight.bold),
+                          subtitle: Consumer<MarketProvider>(
+                            builder: (context, marketProvider, child) {
+                              return Text(
+                                currentCrypto.getFormattedPrice(marketProvider.selectedCurrency),
+                                style: const TextStyle(
+                                    color: Color(0xff0395eb),
+                                    fontSize: 30,
+                                    fontWeight: FontWeight.bold),
+                              );
+                            },
                           ),
                         ),
                         SizedBox(
@@ -236,17 +412,33 @@ class _DetailsPageState extends State<DetailsPage> {
                             ),
                           ],
                         ),
-                        SizedBox(
+                        const SizedBox(
+                          height: 20,
+                        ),
+                        // Multi-currency display
+                        MultiCurrencyDisplay(
+                          cryptoId: currentCrypto.id!,
+                          prices: currentCrypto.prices,
+                          currentPrice: currentCrypto.currentPrice!,
+                          currentCurrency: currentCrypto.currentCurrency,
+                        ),
+                        const SizedBox(
                           height: 30,
                         ),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            titleAndDetail(
-                                "Market Cap",
-                                "₹ " +
-                                    currentCrypto.marketCap!.toStringAsFixed(4),
-                                CrossAxisAlignment.start),
+                            Consumer<MarketProvider>(
+                              builder: (context, marketProvider, child) {
+                                return titleAndDetail(
+                                  "Market Cap",
+                                  currentCrypto.getCurrencySymbol(marketProvider.selectedCurrency) +
+                                      (currentCrypto.marketCap! *
+                                       (currentCrypto.getPriceForCurrency(marketProvider.selectedCurrency) /
+                                        (currentCrypto.currentPrice ?? 1))).toStringAsFixed(2),
+                                  CrossAxisAlignment.start);
+                              },
+                            ),
                             titleAndDetail(
                                 "Market Cap Rank",
                                 "#" + currentCrypto.marketCapRank.toString(),
@@ -259,14 +451,28 @@ class _DetailsPageState extends State<DetailsPage> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            titleAndDetail(
-                                "Low 24h",
-                                "₹ " + currentCrypto.low24!.toStringAsFixed(4),
-                                CrossAxisAlignment.start),
-                            titleAndDetail(
-                                "High 24h",
-                                "₹ " + currentCrypto.high24!.toStringAsFixed(4),
-                                CrossAxisAlignment.end),
+                            Consumer<MarketProvider>(
+                              builder: (context, marketProvider, child) {
+                                return titleAndDetail(
+                                  "Low 24h",
+                                  currentCrypto.getCurrencySymbol(marketProvider.selectedCurrency) +
+                                      (currentCrypto.low24! *
+                                       (currentCrypto.getPriceForCurrency(marketProvider.selectedCurrency) /
+                                        (currentCrypto.currentPrice ?? 1))).toStringAsFixed(4),
+                                  CrossAxisAlignment.start);
+                              },
+                            ),
+                            Consumer<MarketProvider>(
+                              builder: (context, marketProvider, child) {
+                                return titleAndDetail(
+                                  "High 24h",
+                                  currentCrypto.getCurrencySymbol(marketProvider.selectedCurrency) +
+                                      (currentCrypto.high24! *
+                                       (currentCrypto.getPriceForCurrency(marketProvider.selectedCurrency) /
+                                        (currentCrypto.currentPrice ?? 1))).toStringAsFixed(4),
+                                  CrossAxisAlignment.end);
+                              },
+                            ),
                           ],
                         ),
                         SizedBox(
