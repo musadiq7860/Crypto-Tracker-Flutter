@@ -9,6 +9,6 @@
 
 ### Developer mode:
 - Open the flutter file in terminal.
-- Open the emulator using android studio. 
+- Open the emulator using android studio.  
 - Use this code “flutter run” to run the application in emulator.
 
